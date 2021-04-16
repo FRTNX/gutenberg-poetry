@@ -45,9 +45,11 @@ def get_filename(book_metadata):
                 valid_strings.append(name.strip())
     
     author = ' '.join(valid_strings[::-1])
-    print(f"FILENAME: {author} - {book_metadata['Title']}")
 
-    return f"{author} - {book_metadata['Title']}"
+    filename = f"{author} - {book_metadata['Title']}"
+    print(f"FILENAME: {filename}")
+
+    return filename
 
 
 def get_filelinks_and_metadata(poetry_book_links):
@@ -78,16 +80,17 @@ def get_filelinks_and_metadata(poetry_book_links):
 
     return filelinks_and_metadata
 
+
 def handler():
     poetry_book_links = []
 
     page_urls = ['https://www.gutenberg.org/ebooks/bookshelf/60']
 
     # Only 95 books available here but the redundant page requests
-    # or non-breaking and could be useful when more books are added
+    # are non-breaking and could be useful when more books are added
     # this bookshelf.
     for i in range(26, 200, 25):
-        page_urls.append(POETRY_URL + F'?start_index={i}')
+        page_urls.append(POETRY_URL + f'?start_index={i}')
 
     for page_url in page_urls:
         print(f'Fetching urls from: {page_url}')
