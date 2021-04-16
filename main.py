@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from bs4 import BeautifulSoup
 
@@ -12,10 +13,47 @@ def get_poetry_urls(url):
     return [link for link in links if link.startswith('/ebooks/') and len(link) > len('/ebooks') and link[8:].isnumeric()]
 
 
-def get_text_file_links(urls):
-    txt_file_links = []
-    for book_page in urls:
-        req = requests.get(book_page)
+# This function takes the book metadata's author/editor/translator value,
+# which is usually of the format 'Surname, Name MiddleName, DOB-DOD', or 
+# 'Surname, initials (Name MiddleName), DOB-DOD' and turns it into the
+# format: 'Name Surname'. This is then combined with the books title
+# to form the persisted filename.
+def get_filename(book_metadata):
+    author = ''
+    if 'Author' not in book_metadata.keys():
+        if 'Translator' in book_metadata.keys():   
+            author = book_metadata['Translator']
+        if 'Editor' in book_metadata.keys():               
+            author = book_metadata['Editor']
+    else:
+        author = book_metadata['Author']
+
+    if not author:
+        raise Exception(f'Could not find author using supported schemas: {book_metadata}')        
+            
+    if author.count(',') > 1:           
+        reversed_val = author[::-1]        
+        author = reversed_val[reversed_val.find(',') + 1:][::-1]
+
+    split_names = author.split(',')
+    valid_strings = []
+    for name in split_names:
+        if not any(map(str.isdigit, name)):
+            if '(' in name:
+                valid_strings.append(name[name.find('(') + 1: len(name) - 1].strip())
+            else:
+                valid_strings.append(name.strip())
+    
+    author = ' '.join(valid_strings[::-1])
+    print(f"FILENAME: {author} - {book_metadata['Title']}")
+
+    return f"{author} - {book_metadata['Title']}"
+
+
+def get_filelinks_and_metadata(poetry_book_links):
+    filelinks_and_metadata = []
+    for book_url in poetry_book_links:
+        req = requests.get(book_url)
         soup = BeautifulSoup(req.text, 'html.parser')
         links = [link.get('href') for link in soup.find_all('a')]
         txt_files = [link for link in links if link and '.txt' in link and 'readme' not in link]
@@ -24,43 +62,55 @@ def get_text_file_links(urls):
         if len(txt_files) == 0:
             continue # skips audio books
 
-        txt_file_links.append(BASE_URL + txt_files[0])
+        metadata_table = soup.find_all('table', class_='bibrec')
+        table_keys = [row.text for row in metadata_table[0].findAll('th')]
+        table_values = [row.text.replace('\n', '') for row in metadata_table[0].findAll('td')]
+        table_dict = {}
+        
+        for i in range(0, len(table_keys)):
+            table_dict[table_keys[i]] = table_values[i]
 
-    return txt_file_links
+        table_dict['filename'] = get_filename(table_dict)
+        table_dict['file_link'] = BASE_URL + txt_files[0]
 
+        print(table_dict)
+        filelinks_and_metadata.append(table_dict)
+
+    return filelinks_and_metadata
 
 def handler():
-    poetry_links = []
+    poetry_book_links = []
 
-    urls = [
-        'https://www.gutenberg.org/ebooks/bookshelf/60',
-        'https://www.gutenberg.org/ebooks/bookshelf/60?start_index=26',
-        'https://www.gutenberg.org/ebooks/bookshelf/60?start_index=51',
-        'https://www.gutenberg.org/ebooks/bookshelf/60?start_index=76',
-        'https://www.gutenberg.org/ebooks/bookshelf/60?start_index=101',
-        'https://www.gutenberg.org/ebooks/bookshelf/60?start_index=126',
-        'https://www.gutenberg.org/ebooks/bookshelf/60?start_index=151',
-        'https://www.gutenberg.org/ebooks/bookshelf/60?start_index=176',
-    ]
+    page_urls = ['https://www.gutenberg.org/ebooks/bookshelf/60']
 
-    for url in urls:
-        print(f'Fetching urls from: {url}')
-        book_endpoints = get_poetry_urls(url)
+    # Only 95 books available here but the redundant page requests
+    # or non-breaking and could be useful when more books are added
+    # this bookshelf.
+    for i in range(26, 200, 25):
+        page_urls.append(POETRY_URL + F'?start_index={i}')
+
+    for page_url in page_urls:
+        print(f'Fetching urls from: {page_url}')
+        book_endpoints = get_poetry_urls(page_url)
         print('And book endpoints: ', book_endpoints)
 
         poetry_urls = [BASE_URL + endpoint for endpoint in book_endpoints]
-        [poetry_links.append(poetry_url) for poetry_url in poetry_urls]
+        [poetry_book_links.append(poetry_url) for poetry_url in poetry_urls]
 
-    print('FINAL_RESULT: ', poetry_links)
+    print('FINAL_RESULT: ', poetry_book_links)
 
-    txt_file_links = get_text_file_links(poetry_links)
-    print('TXT_FILE_LINKS: ', txt_file_links)
+    filelinks_and_metadata = get_filelinks_and_metadata(poetry_book_links)
+    print('FILES_AND_METADATA: ', filelinks_and_metadata)
 
-    return txt_file_links
+    return filelinks_and_metadata
 
 
 if __name__ == '__main__':
-    txt_file_links = handler()
+    filelinks_and_metadata = handler()
 
-    for link in txt_file_links:
-        os.system(f'wget --random-wait -P text/ {link}')
+    for metadata in filelinks_and_metadata:
+        print('DOWNLOADING: ', metadata['filename'])
+        os.system(f"wget --random-wait -O \'text/{metadata['filename']}.txt\' {metadata['file_link']}")
+
+    with open('metadata.json', 'w') as f:
+        f.write(json.dumps({ 'metadata': filelinks_and_metadata }))
