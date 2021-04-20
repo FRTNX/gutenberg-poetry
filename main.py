@@ -127,7 +127,7 @@ def handler(search_term=None):
 
 
 if __name__ == '__main__':
-    has_search_term = len(sys.argv) == 3 and sys.argv[1] == '--author'
+    has_search_term = len(sys.argv) == 3 and (sys.argv[1] == '--author' or sys.argv[1] == '-a') 
     search_term = sys.argv[2] if has_search_term else None
     print(f'Beginning extraction. Search term: {search_term}')
 
