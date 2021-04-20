@@ -65,6 +65,7 @@ def get_filelinks_and_metadata(poetry_book_links, search_term=None):
             table_dict[table_keys[i]] = table_values[i]
 
         author = find_and_normalize_author(table_dict)
+        print('AUTHOR: ', author)
 
         table_dict['file_link'] = BASE_URL + txt_files[0]
         table_dict['filename'] = f"{author} - {table_dict['Title']}".replace("'", '').replace('"', '')
@@ -105,7 +106,7 @@ def handler(search_term=None):
         for i in range(26, 200, 25):
             page_urls.append(POETRY_URL + f'?start_index={i}')
     else:
-        search_url = f'https://www.gutenberg.org/ebooks/search/?query={search_term}&submit_search=Go%21'
+        search_url = f"https://www.gutenberg.org/ebooks/search/?query={search_term.replace(' ', '+')}&submit_search=Go%21"
         page_urls = [search_url]
         for i in range(26, 100, 25):
             page_urls.append(search_url + f'&start_index={i}')
