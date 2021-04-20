@@ -108,7 +108,7 @@ def handler(search_term=None):
     else:
         search_url = f"https://www.gutenberg.org/ebooks/search/?query={search_term.replace(' ', '+')}&submit_search=Go%21"
         page_urls = [search_url]
-        for i in range(26, 100, 25):
+        for i in range(26, 300, 25):
             page_urls.append(search_url + f'&start_index={i}')
 
     for page_url in page_urls:
