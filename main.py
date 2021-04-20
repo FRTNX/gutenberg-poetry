@@ -20,6 +20,8 @@ def find_and_normalize_author(book_metadata):
             author = book_metadata['Translator']
         if 'Editor' in book_metadata.keys():               
             author = book_metadata['Editor']
+        if 'Creator' in book_metadata.keys():               
+            author = book_metadata['Creator']
     else:
         author = book_metadata['Author']
 
